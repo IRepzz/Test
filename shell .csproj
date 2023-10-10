@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="shell.cs" />
   </ItemGroup>
 
 </Project>
